@@ -61,3 +61,24 @@ class StandbyMonitoring(Enum):
 
     STANDBY_MONITORING_ON = "ON"
     STANDBY_MONITORING_OFF = "OFF"
+
+
+class FocusMode(Enum):
+    """Fan operates in a focused stream or wide spread."""
+    FOCUS_OFF = "OFF"
+    FOCUS_ON = "ON"
+
+
+class HeatMode(Enum):
+    """Heat mode for the fan."""
+    HEAT_OFF = "OFF"
+    HEAT_ON = "HEAT"
+
+
+class HeatTarget(Enum):
+    """Heat Target for fan. Note dyson uses kelvin as the temperature unit."""
+    def CELSIUS(temperature):
+        """Convert the given int to string constant. Value temperature is 1 to 37 celius"""
+        if temperature < 1 or temperature > 37:
+            raise "Invalid temperature. It must be between 1 to 37 inclusive."
+        return str((int(temperature) + 273) * 10) # target temperature in kelvin, padd with zero

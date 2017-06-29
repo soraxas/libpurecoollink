@@ -400,7 +400,7 @@ class DysonPureCoolLink:
 
     def set_fan_configuration(self, fan_mode, oscillation, fan_speed,
                               night_mode, quality_target, standby_monitoring,
-                              sleep_timer):
+                              sleep_timer, heat_mode, heat_target, focus_mode):
         # pylint: disable=too-many-arguments,too-many-locals
         """Configure Fan.
 
@@ -412,6 +412,10 @@ class DysonPureCoolLink:
         :param standby_monitoring: Monitor when on standby
                                    (const.StandbyMonitoring)
         :param sleep_timer: Sleep timer in minutes, 0 to cancel (Integer)
+        :param heat_mode: Heat mode (const.HeatMode)
+        :param heat_target: temperature for the target heat (const.HeatTarget.CELIUS(Integer))
+        :param focus_mode: Fan operates in a focus stream (const.FocusMode)
+
         """
         if self._connected:
             f_mode = fan_mode.value if fan_mode \
@@ -428,6 +432,12 @@ class DysonPureCoolLink:
                 standby_monitoring else self._current_state.standby_monitoring
             f_sleep_timer = sleep_timer if sleep_timer or isinstance(
                 sleep_timer, int) else "STET"
+            f_heat_mode = heat_mode.value if heat_mode \
+                else self._current_state.heat_mode
+            f_heat_target = heat_target if heat_target \
+                else self._current_state.heat_target
+            f_fan_focus = focus_mode.value if focus_mode \
+                else self._current_state.focus_mode
 
             payload = {
                 "msg": "STATE-SET",
@@ -442,7 +452,11 @@ class DysonPureCoolLink:
                                                    # when inactive
                     "rstf": "STET",  # ??,
                     "qtar": f_quality_target,
-                    "nmod": f_night_mode
+                    "nmod": f_night_mode,
+
+                    "hmod": f_heat_mode, # hot mode
+                    "ffoc": f_fan_focus, # fan in focus mode
+                    "hmax": f_heat_target # target temperature in kelvin
                 }
             }
             self._mqtt.publish(
@@ -465,10 +479,14 @@ class DysonPureCoolLink:
         quality_target = kwargs.get('quality_target')
         standby_monitoring = kwargs.get('standby_monitoring')
         sleep_timer = kwargs.get('sleep_timer')
+        heat_mode = kwargs.get('heat_mode')
+        heat_target = kwargs.get('heat_target')
+        focus_mode = kwargs.get('focus_mode')
 
         self.set_fan_configuration(fan_mode, oscillation, fan_speed,
                                    night_mode, quality_target,
-                                   standby_monitoring, sleep_timer)
+                                   standby_monitoring, sleep_timer,
+                                   heat_mode, heat_target, focus_mode)
 
     @property
     def active(self):
@@ -605,6 +623,11 @@ class DysonState:
         self._filter_life = self.__get_field_value(state, 'filf')
         self._quality_target = self.__get_field_value(state, 'qtar')
         self._standby_monitoring = self.__get_field_value(state, 'rhtm')
+        self._tilt = self.__get_field_value(state, 'tilt')
+        self._fan_focus = self.__get_field_value(state, 'ffoc')
+        self._heat_target = self.__get_field_value(state, 'hmax')
+        self._heat_mode = self.__get_field_value(state, 'hmod')
+        self._heat_state = self.__get_field_value(state, 'hsta')
 
     @property
     def fan_mode(self):
@@ -646,11 +669,37 @@ class DysonState:
         """Monitor when inactive (standby)."""
         return self._standby_monitoring
 
+    @property
+    def tilt(self):
+        """is it tilting???"""
+        return self._tilt
+
+    @property
+    def focus_mode(self):
+        """Focus the fan on one stream or spread"""
+        return self._fan_focus
+
+    @property
+    def heat_target(self):
+        """Heat target of the temperature"""
+        return self._heat_target
+
+    @property
+    def heat_mode(self):
+        """Heat mode on or off"""
+        return self._heat_mode
+
+    @property
+    def heat_state(self):
+        """Heat state"""
+        return self._heat_state
+
     def __repr__(self):
         """Return a String representation."""
         fields = [self.fan_mode, self.fan_state, self.night_mode, self.speed,
                   self.oscillation, self.filter_life, self.quality_target,
-                  self.standby_monitoring]
+                  self.standby_monitoring, self.tilt, self.focus_mode, self.heat_mode,
+                  self.heat_target, self.heat_state]
         return 'DysonState(' + ",".join(fields) + ')'
 
 
@@ -676,11 +725,13 @@ class DysonEnvironmentalSensorState:
         """
         json_message = json.loads(payload)
         data = json_message['data']
-        self._humidity = int(self.__get_field_value(data, 'hact'))
+        humidity = self.__get_field_value(data, 'hact')
+        self._humidity = 0 if humidity == 'OFF' else int()
         volatil_copounds = self.__get_field_value(data, 'vact')
         self._volatil_compounds = 0 if volatil_copounds == 'INIT' else int(
             volatil_copounds)
-        self._temperature = float(self.__get_field_value(data, 'tact'))/10
+        temperature = self.__get_field_value(data, 'tact')
+        self._temperature = 0 if temperature == 'OFF' else float(temperature)/10
         self._dust = int(self.__get_field_value(data, 'pact'))
         sltm = self.__get_field_value(data, 'sltm')
         self._sleep_timer = 0 if sltm == 'OFF' else int(sltm)
