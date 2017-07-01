@@ -16,6 +16,8 @@ import requests
 from requests.auth import HTTPBasicAuth
 from Crypto.Cipher import AES
 
+from .utils import support_heating, printable_fields
+
 from .zeroconf import ServiceBrowser, Zeroconf
 
 DEFAULT_PORT = 1883
@@ -23,9 +25,6 @@ DEFAULT_PORT = 1883
 _LOGGER = logging.getLogger(__name__)
 
 DYSON_API_URL = "api.cp.dyson.com"
-
-DYSON_PURE_COOL_LINK_TOUR = "475"
-DYSON_PURE_COOL_LINK_DESK = "469"
 
 MQTT_RETURN_CODES = {
     0: "Connection successful",
@@ -130,8 +129,9 @@ class NetworkDevice:
 
     def __repr__(self):
         """Return a String representation."""
-        fields = [self.name, self.address, str(self.port)]
-        return 'NetworkDevice(' + ",".join(fields) + ')'
+        fields = [("name", self.name), ("address", self.address),
+                  ("port", str(self.port))]
+        return 'NetworkDevice(' + ",".join(printable_fields(fields)) + ')'
 
 
 class EnvironmentalSensorThread(Thread):
@@ -256,7 +256,7 @@ class DysonPureCoolLink:
         """Set function Callback when message received."""
         payload = msg.payload.decode("utf-8")
         if DysonState.is_state_message(payload):
-            device_msg = DysonState(payload)
+            device_msg = DysonState(userdata.product_type, payload)
             if not userdata.device_available:
                 userdata.state_data_available()
             userdata.state = device_msg
@@ -413,7 +413,8 @@ class DysonPureCoolLink:
                                    (const.StandbyMonitoring)
         :param sleep_timer: Sleep timer in minutes, 0 to cancel (Integer)
         :param heat_mode: Heat mode (const.HeatMode)
-        :param heat_target: temperature for the target heat (const.HeatTarget.CELIUS(Integer))
+        :param heat_target: temperature for the target heat in kelvin
+                                (helpers methods in const.HeatTarget)
         :param focus_mode: Fan operates in a focus stream (const.FocusMode)
 
         """
@@ -432,32 +433,35 @@ class DysonPureCoolLink:
                 standby_monitoring else self._current_state.standby_monitoring
             f_sleep_timer = sleep_timer if sleep_timer or isinstance(
                 sleep_timer, int) else "STET"
-            f_heat_mode = heat_mode.value if heat_mode \
-                else self._current_state.heat_mode
-            f_heat_target = heat_target if heat_target \
-                else self._current_state.heat_target
-            f_fan_focus = focus_mode.value if focus_mode \
-                else self._current_state.focus_mode
+
+            data = {
+                "fmod": f_mode,
+                "fnsp": f_speed,
+                "oson": f_oscillation,
+                "sltm": f_sleep_timer,  # sleep timer
+                "rhtm": f_standby_monitoring,  # monitor air quality
+                                               # when inactive
+                "rstf": "STET",  # ??,
+                "qtar": f_quality_target,
+                "nmod": f_night_mode
+            }
+
+            if support_heating(self.product_type):
+                f_heat_mode = heat_mode.value if heat_mode \
+                    else self._current_state.heat_mode
+                f_heat_target = heat_target if heat_target \
+                    else self._current_state.heat_target
+                f_fan_focus = focus_mode.value if focus_mode \
+                    else self._current_state.focus_mode
+                data["hmod"] = f_heat_mode
+                data["ffoc"] = f_fan_focus
+                data["hmax"] = f_heat_target
 
             payload = {
                 "msg": "STATE-SET",
                 "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "mode-reason": "LAPP",
-                "data": {
-                    "fmod": f_mode,
-                    "fnsp": f_speed,
-                    "oson": f_oscillation,
-                    "sltm": f_sleep_timer,  # sleep timer
-                    "rhtm": f_standby_monitoring,  # monitor air quality
-                                                   # when inactive
-                    "rstf": "STET",  # ??,
-                    "qtar": f_quality_target,
-                    "nmod": f_night_mode,
-
-                    "hmod": f_heat_mode, # hot mode
-                    "ffoc": f_fan_focus, # fan in focus mode
-                    "hmax": f_heat_target # target temperature in kelvin
-                }
+                "data": data
             }
             self._mqtt.publish(
                 self._product_type + "/" + self._serial + "/command",
@@ -587,10 +591,13 @@ class DysonPureCoolLink:
 
     def __repr__(self):
         """Return a String representation."""
-        fields = [self.serial, str(self.active), self.name, self.version,
-                  str(self.auto_update), str(self.new_version_available),
-                  self.product_type, str(self.network_device)]
-        return 'DysonDevice(' + ",".join(fields) + ')'
+        fields = [("serial", self.serial), ("active", str(self.active)),
+                  ("name", self.name), ("version", self.version),
+                  ("auto_update", str(self.auto_update)),
+                  ("new_version_available", str(self.new_version_available)),
+                  ("product_type", self.product_type),
+                  ("network_device", str(self.network_device))]
+        return 'DysonDevice(' + ",".join(printable_fields(fields)) + ')'
 
 
 class DysonState:
@@ -608,11 +615,13 @@ class DysonState:
         return state[field][1] if isinstance(state[field], list) else state[
             field]
 
-    def __init__(self, payload):
+    def __init__(self, product_type, payload):
         """Create a new state.
 
+        :param product_type: Product type
         :param payload: Message payload
         """
+        self._product_type = product_type
         json_message = json.loads(payload)
         state = json_message['product-state']
         self._fan_mode = self.__get_field_value(state, 'fmod')
@@ -623,11 +632,12 @@ class DysonState:
         self._filter_life = self.__get_field_value(state, 'filf')
         self._quality_target = self.__get_field_value(state, 'qtar')
         self._standby_monitoring = self.__get_field_value(state, 'rhtm')
-        self._tilt = self.__get_field_value(state, 'tilt')
-        self._fan_focus = self.__get_field_value(state, 'ffoc')
-        self._heat_target = self.__get_field_value(state, 'hmax')
-        self._heat_mode = self.__get_field_value(state, 'hmod')
-        self._heat_state = self.__get_field_value(state, 'hsta')
+        if support_heating(self._product_type):
+            self._tilt = self.__get_field_value(state, 'tilt')
+            self._fan_focus = self.__get_field_value(state, 'ffoc')
+            self._heat_target = self.__get_field_value(state, 'hmax')
+            self._heat_mode = self.__get_field_value(state, 'hmod')
+            self._heat_state = self.__get_field_value(state, 'hsta')
 
     @property
     def fan_mode(self):
@@ -671,36 +681,45 @@ class DysonState:
 
     @property
     def tilt(self):
-        """is it tilting???"""
+        """Is it tilting???."""
         return self._tilt
 
     @property
     def focus_mode(self):
-        """Focus the fan on one stream or spread"""
+        """Focus the fan on one stream or spread."""
         return self._fan_focus
 
     @property
     def heat_target(self):
-        """Heat target of the temperature"""
+        """Heat target of the temperature."""
         return self._heat_target
 
     @property
     def heat_mode(self):
-        """Heat mode on or off"""
+        """Heat mode on or off."""
         return self._heat_mode
 
     @property
     def heat_state(self):
-        """Heat state"""
+        """Heat state."""
         return self._heat_state
 
     def __repr__(self):
         """Return a String representation."""
-        fields = [self.fan_mode, self.fan_state, self.night_mode, self.speed,
-                  self.oscillation, self.filter_life, self.quality_target,
-                  self.standby_monitoring, self.tilt, self.focus_mode, self.heat_mode,
-                  self.heat_target, self.heat_state]
-        return 'DysonState(' + ",".join(fields) + ')'
+        fields = [("fan_mode", self.fan_mode), ("fan_state", self.fan_state),
+                  ("night_mode", self.night_mode), ("speed", self.speed),
+                  ("oscillation", self.oscillation),
+                  ("filter_life", self.filter_life),
+                  ("quality_target", self.quality_target),
+                  ("standby_monitoring", self.standby_monitoring)]
+        if support_heating(self._product_type):
+            fields.append(("tilt", self.tilt))
+            fields.append(("focus_mode", self.focus_mode))
+            fields.append(("heat_mode", self.heat_mode))
+            fields.append(("heat_target", self.heat_target))
+            fields.append(("heat_state", self.heat_state))
+
+        return 'DysonState(' + ",".join(printable_fields(fields)) + ')'
 
 
 class DysonEnvironmentalSensorState:
@@ -726,12 +745,13 @@ class DysonEnvironmentalSensorState:
         json_message = json.loads(payload)
         data = json_message['data']
         humidity = self.__get_field_value(data, 'hact')
-        self._humidity = 0 if humidity == 'OFF' else int()
+        self._humidity = 0 if humidity == 'OFF' else int(humidity)
         volatil_copounds = self.__get_field_value(data, 'vact')
         self._volatil_compounds = 0 if volatil_copounds == 'INIT' else int(
             volatil_copounds)
         temperature = self.__get_field_value(data, 'tact')
-        self._temperature = 0 if temperature == 'OFF' else float(temperature)/10
+        self._temperature = 0 if temperature == 'OFF' else float(
+            temperature) / 10
         self._dust = int(self.__get_field_value(data, 'pact'))
         sltm = self.__get_field_value(data, 'sltm')
         self._sleep_timer = 0 if sltm == 'OFF' else int(sltm)
@@ -763,10 +783,13 @@ class DysonEnvironmentalSensorState:
 
     def __repr__(self):
         """Return a String representation."""
-        fields = [str(self.humidity), str(self.volatil_organic_compounds),
-                  str(self.temperature), str(self.dust),
-                  str(self._sleep_timer)]
-        return 'DysonEnvironmentalSensorState(' + ",".join(fields) + ')'
+        fields = [("humidity", str(self.humidity)),
+                  ("air quality", str(self.volatil_organic_compounds)),
+                  ("temperature", str(self.temperature)),
+                  ("dust", str(self.dust)),
+                  ("sleep_timer", str(self._sleep_timer))]
+        return 'DysonEnvironmentalSensorState(' + ",".join(
+            printable_fields(fields)) + ')'
 
 
 class DysonNotLoggedException(Exception):

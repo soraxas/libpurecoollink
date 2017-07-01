@@ -1,6 +1,11 @@
 """Dyson Pure Cool Link constants."""
 
 from enum import Enum
+from .exceptions import DysonInvalidTargetTemperatureException as DITTE
+
+DYSON_PURE_COOL_LINK_TOUR = "475"
+DYSON_PURE_COOL_LINK_DESK = "469"
+DYSON_PURE_HOT_COOL_LINK_TOUR = "455"
 
 
 class FanMode(Enum):
@@ -65,20 +70,38 @@ class StandbyMonitoring(Enum):
 
 class FocusMode(Enum):
     """Fan operates in a focused stream or wide spread."""
+
     FOCUS_OFF = "OFF"
     FOCUS_ON = "ON"
 
 
 class HeatMode(Enum):
     """Heat mode for the fan."""
+
     HEAT_OFF = "OFF"
     HEAT_ON = "HEAT"
 
 
-class HeatTarget(Enum):
+class HeatTarget:
     """Heat Target for fan. Note dyson uses kelvin as the temperature unit."""
-    def CELSIUS(temperature):
-        """Convert the given int to string constant. Value temperature is 1 to 37 celius"""
+
+    @staticmethod
+    def celsius(temperature):
+        """Convert the given int celsius temperature to string in Kelvin.
+
+        :param temperature temperature in celsius between 1 to 37 inclusive.
+        """
         if temperature < 1 or temperature > 37:
-            raise "Invalid temperature. It must be between 1 to 37 inclusive."
-        return str((int(temperature) + 273) * 10) # target temperature in kelvin, padd with zero
+            raise DITTE(DITTE.CELSIUS, temperature)
+        return str((int(temperature) + 273) * 10)
+
+    @staticmethod
+    def fahrenheit(temperature):
+        """Convert the given int fahrenheit temperature to string in Kelvin.
+
+        :param temperature temperature in fahrenheit between 34 to 98
+                            inclusive.
+        """
+        if temperature < 34 or temperature > 98:
+            raise DITTE(DITTE.FAHRENHEIT, temperature)
+        return str(int((int(temperature) + 459.67) * 5/9) * 10)
