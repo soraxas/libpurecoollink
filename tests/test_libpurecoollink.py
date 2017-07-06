@@ -10,7 +10,7 @@ from libpurecoollink.dyson import DysonAccount, NetworkDevice, \
 from libpurecoollink.const import FanMode, NightMode, FanSpeed, Oscillation, \
     FanState, QualityTarget, StandbyMonitoring as SM, \
     DYSON_PURE_COOL_LINK_DESK as Desk, DYSON_PURE_HOT_COOL_LINK_TOUR as Hot, \
-    HeatMode, HeatTarget, FocusMode
+    HeatMode, HeatState, HeatTarget, FocusMode, TiltState
 from libpurecoollink.exceptions import DysonInvalidTargetTemperatureException
 
 
@@ -709,17 +709,17 @@ class TestLibPureCoolLink(unittest.TestCase):
         self.assertEqual(dyson_state.oscillation,
                          Oscillation.OSCILLATION_OFF.value)
         self.assertEqual(dyson_state.filter_life, '2087')
-        self.assertEqual(dyson_state.heat_state, 'heat')
-        self.assertEqual(dyson_state.tilt, 'Value')
-        self.assertEqual(dyson_state.focus_mode, 'spread')
-        self.assertEqual(dyson_state.heat_mode, 'on')
-        self.assertEqual(dyson_state.heat_target, '295')
+        self.assertEqual(dyson_state.heat_mode, HeatMode.HEAT_ON.value)
+        self.assertEqual(dyson_state.heat_state, HeatState.HEAT_STATE_ON.value)
+        self.assertEqual(dyson_state.tilt, TiltState.TILT_FALSE.value)
+        self.assertEqual(dyson_state.focus_mode, FocusMode.FOCUS_OFF.value)
+        self.assertEqual(dyson_state.heat_target, '2950')
         self.assertEqual(dyson_state.__repr__(),
                          "DysonState(fan_mode=AUTO,fan_state=FAN,"
                          "night_mode=ON,speed=AUTO,oscillation=OFF,"
                          "filter_life=2087,quality_target=0004,"
-                         "standby_monitoring=ON,tilt=Value,focus_mode=spread,"
-                         "heat_mode=on,heat_target=295,heat_state=heat)")
+                         "standby_monitoring=ON,tilt=OK,focus_mode=OFF,"
+                         "heat_mode=HEAT,heat_target=2950,heat_state=HEAT)")
         self.assertEqual(dyson_state.quality_target,
                          QualityTarget.QUALITY_NORMAL.value)
         self.assertEqual(dyson_state.standby_monitoring,

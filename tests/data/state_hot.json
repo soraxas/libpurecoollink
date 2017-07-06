@@ -16,11 +16,11 @@
     "ercd": "02C0",
     "nmod": "ON",
     "wacd": "NONE",
-    "tilt": "Value",
-    "ffoc": "spread",
-    "hmax": "295",
-    "hmod": "on",
-    "hsta": "heat"
+    "tilt": "OK",
+    "ffoc": "ON",
+    "hmax": "2950",
+    "hmod": "HEAT",
+    "hsta": "HEAT"
   },
   "scheduler": {
     "srsc": "cbd0",

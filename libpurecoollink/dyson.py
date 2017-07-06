@@ -681,7 +681,7 @@ class DysonState:
 
     @property
     def tilt(self):
-        """Is it tilting???."""
+        """Indicates if the device is tilted."""
         return self._tilt
 
     @property
@@ -701,7 +701,7 @@ class DysonState:
 
     @property
     def heat_state(self):
-        """Heat state."""
+        """Indicates if heating is actually on."""
         return self._heat_state
 
     def __repr__(self):
