@@ -400,7 +400,8 @@ class DysonPureCoolLink:
 
     def set_fan_configuration(self, fan_mode, oscillation, fan_speed,
                               night_mode, quality_target, standby_monitoring,
-                              sleep_timer, heat_mode, heat_target, focus_mode):
+                              sleep_timer, heat_mode, heat_target, focus_mode,
+                              reset_filter):
         # pylint: disable=too-many-arguments,too-many-locals
         """Configure Fan.
 
@@ -416,6 +417,7 @@ class DysonPureCoolLink:
         :param heat_target: temperature for the target heat in kelvin
                                 (helpers methods in const.HeatTarget)
         :param focus_mode: Fan operates in a focus stream (const.FocusMode)
+        :param reset_filter: reset filter life (const.resetFilter)
 
         """
         if self._connected:
@@ -433,6 +435,8 @@ class DysonPureCoolLink:
                 standby_monitoring else self._current_state.standby_monitoring
             f_sleep_timer = sleep_timer if sleep_timer or isinstance(
                 sleep_timer, int) else "STET"
+            f_reset_filter = reset_filter.value if reset_filter \
+                else "STET"
 
             data = {
                 "fmod": f_mode,
@@ -441,7 +445,7 @@ class DysonPureCoolLink:
                 "sltm": f_sleep_timer,  # sleep timer
                 "rhtm": f_standby_monitoring,  # monitor air quality
                                                # when inactive
-                "rstf": "STET",  # ??,
+                "rstf": f_reset_filter,  # reset filter lifecycle
                 "qtar": f_quality_target,
                 "nmod": f_night_mode
             }
@@ -486,11 +490,13 @@ class DysonPureCoolLink:
         heat_mode = kwargs.get('heat_mode')
         heat_target = kwargs.get('heat_target')
         focus_mode = kwargs.get('focus_mode')
+        reset_filter = kwargs.get('reset_filter')
 
         self.set_fan_configuration(fan_mode, oscillation, fan_speed,
                                    night_mode, quality_target,
                                    standby_monitoring, sleep_timer,
-                                   heat_mode, heat_target, focus_mode)
+                                   heat_mode, heat_target, focus_mode,
+                                   reset_filter)
 
     @property
     def active(self):

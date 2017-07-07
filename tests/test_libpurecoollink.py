@@ -10,7 +10,7 @@ from libpurecoollink.dyson import DysonAccount, NetworkDevice, \
 from libpurecoollink.const import FanMode, NightMode, FanSpeed, Oscillation, \
     FanState, QualityTarget, StandbyMonitoring as SM, \
     DYSON_PURE_COOL_LINK_DESK as Desk, DYSON_PURE_HOT_COOL_LINK_TOUR as Hot, \
-    HeatMode, HeatState, HeatTarget, FocusMode, TiltState
+    HeatMode, HeatState, HeatTarget, FocusMode, TiltState, ResetFilter
 from libpurecoollink.exceptions import DysonInvalidTargetTemperatureException
 
 
@@ -131,6 +131,24 @@ def _mocked_send_command_hot(*args, **kwargs):
         assert payload['data']['hmod'] == "HEAT"
         assert payload['data']['hmax'] == "2980"
         assert payload['data']['ffoc'] == "ON"
+        assert payload['mode-reason'] == "LAPP"
+        assert payload['msg'] == "STATE-SET"
+        assert args[2] == 1
+
+
+def _mocked_send_command_rst_filter(*args, **kwargs):
+    assert args[0] == '475/device-id-1/command'
+    payload = json.loads(args[1])
+    if payload['msg'] == "STATE-SET":
+        assert payload['time']
+        assert payload['data']['fmod'] == "FAN"
+        assert payload['data']['nmod'] == "OFF"
+        assert payload['data']['oson'] == "ON"
+        assert payload['data']['rstf'] == "RSTF"
+        assert payload['data']['qtar'] == "0004"
+        assert payload['data']['fnsp'] == "0003"
+        assert payload['data']['sltm'] == "STET"
+        assert payload['data']['rhtm'] == "ON"
         assert payload['mode-reason'] == "LAPP"
         assert payload['msg'] == "STATE-SET"
         assert args[2] == 1
@@ -557,6 +575,50 @@ class TestLibPureCoolLink(unittest.TestCase):
                          "DysonDevice(serial=device-id-1,active=True,"
                          "name=device-1,version=21.03.08,auto_update=True,"
                          "new_version_available=False,product_type=455,"
+                         "network_device=NetworkDevice(name=device-1,"
+                         "address=host,port=1111))")
+        device.disconnect()
+
+    @mock.patch('paho.mqtt.client.Client.publish',
+                side_effect=_mocked_send_command_rst_filter)
+    @mock.patch('paho.mqtt.client.Client.connect')
+    def test_set_configuration_rst_filter(self, mocked_connect,
+                                          mocked_publish):
+        device = DysonPureCoolLink({
+            "Active": True,
+            "Serial": "device-id-1",
+            "Name": "device-1",
+            "ScaleUnit": "SU01",
+            "Version": "21.03.08",
+            "LocalCredentials": "1/aJ5t52WvAfn+z+fjDuef86kQDQPefbQ6/70ZGysII1K"
+                                "e1i0ZHakFH84DZuxsSQ4KTT2vbCm7uYeTORULKLKQ==",
+            "AutoUpdate": True,
+            "NewVersionAvailable": False,
+            "ProductType": "475"
+        })
+        network_device = NetworkDevice('device-1', 'host', 1111)
+        device._add_network_device(network_device)
+        device._current_state = DysonState(Desk, open("tests/data/state.json",
+                                                      "r").read())
+        device.connection_callback(True)
+        device.state_data_available()
+        device.sensor_data_available()
+        connected = device.connect(None)
+        self.assertTrue(connected)
+        self.assertEqual(mocked_connect.call_count, 1)
+        device.set_configuration(fan_mode=FanMode.FAN,
+                                 oscillation=Oscillation.OSCILLATION_ON,
+                                 fan_speed=FanSpeed.FAN_SPEED_3,
+                                 night_mode=NightMode.NIGHT_MODE_OFF,
+                                 quality_target=QualityTarget.QUALITY_NORMAL,
+                                 standby_monitoring=SM.STANDBY_MONITORING_ON,
+                                 reset_filter=ResetFilter.RESET_FILTER
+                                 )
+        self.assertEqual(mocked_publish.call_count, 3)
+        self.assertEqual(device.__repr__(),
+                         "DysonDevice(serial=device-id-1,active=True,"
+                         "name=device-1,version=21.03.08,auto_update=True,"
+                         "new_version_available=False,product_type=475,"
                          "network_device=NetworkDevice(name=device-1,"
                          "address=host,port=1111))")
         device.disconnect()

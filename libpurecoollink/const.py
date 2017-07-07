@@ -119,3 +119,10 @@ class HeatTarget:
         if temperature < 34 or temperature > 98:
             raise DITTE(DITTE.FAHRENHEIT, temperature)
         return str(int((int(temperature) + 459.67) * 5/9) * 10)
+
+
+class ResetFilter(Enum):
+    """Reset the filter status / new filter."""
+
+    RESET_FILTER = "RSTF"
+    DO_NOTHING = "STET"
