@@ -74,11 +74,13 @@ class FocusMode(Enum):
     FOCUS_OFF = "OFF"
     FOCUS_ON = "ON"
 
+
 class TiltState(Enum):
     """Indicates if device is tilted."""
 
     TILT_TRUE = "TILT"
     TILT_FALSE = "OK"
+
 
 class HeatMode(Enum):
     """Heat mode for the fan."""
@@ -86,11 +88,13 @@ class HeatMode(Enum):
     HEAT_OFF = "OFF"
     HEAT_ON = "HEAT"
 
+
 class HeatState(Enum):
     """Heating State."""
 
     HEAT_STATE_OFF = "OFF"
     HEAT_STATE_ON = "HEAT"
+
 
 class HeatTarget:
     """Heat Target for fan. Note dyson uses kelvin as the temperature unit."""

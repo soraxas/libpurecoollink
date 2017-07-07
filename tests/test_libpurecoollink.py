@@ -712,13 +712,13 @@ class TestLibPureCoolLink(unittest.TestCase):
         self.assertEqual(dyson_state.heat_mode, HeatMode.HEAT_ON.value)
         self.assertEqual(dyson_state.heat_state, HeatState.HEAT_STATE_ON.value)
         self.assertEqual(dyson_state.tilt, TiltState.TILT_FALSE.value)
-        self.assertEqual(dyson_state.focus_mode, FocusMode.FOCUS_OFF.value)
+        self.assertEqual(dyson_state.focus_mode, FocusMode.FOCUS_ON.value)
         self.assertEqual(dyson_state.heat_target, '2950')
         self.assertEqual(dyson_state.__repr__(),
                          "DysonState(fan_mode=AUTO,fan_state=FAN,"
                          "night_mode=ON,speed=AUTO,oscillation=OFF,"
                          "filter_life=2087,quality_target=0004,"
-                         "standby_monitoring=ON,tilt=OK,focus_mode=OFF,"
+                         "standby_monitoring=ON,tilt=OK,focus_mode=ON,"
                          "heat_mode=HEAT,heat_target=2950,heat_state=HEAT)")
         self.assertEqual(dyson_state.quality_target,
                          QualityTarget.QUALITY_NORMAL.value)
